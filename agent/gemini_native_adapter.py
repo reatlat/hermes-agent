@@ -17,7 +17,35 @@ import uuid
 from types import SimpleNamespace
 from typing import Any, Dict, Iterator, List, Optional
 
-import httpx
+import importlib as _importlib
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import httpx
+else:
+    class _LazyHttpx:
+        __slots__ = ("_mod",)
+
+        def __init__(self) -> None:
+            object.__setattr__(self, "_mod", None)
+
+        def _resolve(self):
+            mod = object.__getattribute__(self, "_mod")
+            if mod is None:
+                mod = _importlib.import_module("httpx")
+                object.__setattr__(self, "_mod", mod)
+            return mod
+
+        def __getattr__(self, name):
+            return getattr(self._resolve(), name)
+
+        def __setattr__(self, name, value):
+            setattr(self._resolve(), name, value)
+
+        def __delattr__(self, name):
+            delattr(self._resolve(), name)
+
+    httpx = _LazyHttpx()
 
 from agent.bounded_response import read_streaming_error_body
 from agent.retry_utils import parse_retry_after_seconds

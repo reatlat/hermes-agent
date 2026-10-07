@@ -15,7 +15,35 @@ import logging
 import threading
 from typing import List
 
-import httpx
+import importlib as _importlib
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import httpx
+else:
+    class _LazyHttpx:
+        __slots__ = ("_mod",)
+
+        def __init__(self) -> None:
+            object.__setattr__(self, "_mod", None)
+
+        def _resolve(self):
+            mod = object.__getattribute__(self, "_mod")
+            if mod is None:
+                mod = _importlib.import_module("httpx")
+                object.__setattr__(self, "_mod", mod)
+            return mod
+
+        def __getattr__(self, name):
+            return getattr(self._resolve(), name)
+
+        def __setattr__(self, name, value):
+            setattr(self._resolve(), name, value)
+
+        def __delattr__(self, name):
+            delattr(self._resolve(), name)
+
+    httpx = _LazyHttpx()
 
 logger = logging.getLogger(__name__)
 
